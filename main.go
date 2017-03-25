@@ -85,13 +85,26 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
+	"log"
 	"math/big"
+	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
 
 func main() {
+	exchange, err := fetch("http://www.hnb.hr/tecajn/htecajn.htm")
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	fmt.Println(exchange.Date)
+	for currency, rates := range exchange.Rates {
+		fmt.Printf("%s\t%.6f\t%.6f\t%.6f\n", currency, rates.Buy, rates.Middle, rates.Sell)
+	}
 }
 
 type Exchange struct {
@@ -106,6 +119,69 @@ type Rate struct {
 }
 
 func fetch(source string) (exchange Exchange, err error) {
+	exchange.Rates = make(map[string]Rate, 0)
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Get(source)
+	if err != nil {
+		return exchange, fmt.Errorf("Error in fetching data from %q: %s", source, err)
+	}
+	defer resp.Body.Close()
+
+	scanner := bufio.NewScanner(resp.Body)
+
+	for scanner.Scan() {
+		rate := Rate{}
+
+		line := scanner.Text()
+		if len(line) == 0 {
+			continue
+		}
+
+		if len(line) == 21 {
+			exchange.Date, err = time.Parse("02012006", line[11:19])
+			if err != nil {
+				return exchange, fmt.Errorf("Error in parsing date from %q: %s", line, err)
+			}
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) != 4 {
+			return exchange, fmt.Errorf("Unknown exchange format %q", line)
+		}
+
+		currency := parts[0][3:6]
+		units, err := strconv.Atoi(parts[0][6:])
+		if err != nil {
+			return exchange, fmt.Errorf("Error in parsing units from %q: %s", line, err)
+		}
+
+		rate.Buy, err = normaliseRate(engFloat(parts[1]), units)
+		if err != nil {
+			return exchange, fmt.Errorf("Error while normalizing rate %q: %s", line, err)
+		}
+
+		rate.Middle, err = normaliseRate(engFloat(parts[2]), units)
+		if err != nil {
+			return exchange, fmt.Errorf("Error while normalizing rate %q: %s", line, err)
+		}
+
+		rate.Sell, err = normaliseRate(engFloat(parts[3]), units)
+		if err != nil {
+			return exchange, fmt.Errorf("Error while normalizing rate %q: %s", line, err)
+		}
+
+		exchange.Rates[currency] = rate
+	}
+
+	if err := scanner.Err(); err != nil {
+		return exchange, fmt.Errorf("Error in scanning of response: %s", err)
+	}
+
 	return
 }
 
