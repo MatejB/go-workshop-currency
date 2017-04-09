@@ -86,7 +86,9 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"log"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -95,22 +97,54 @@ import (
 )
 
 func main() {
-	// create a HTTP server
+	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		exch, err := fetch("http://www.hnb.hr/tecajn/htecajn.htm")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		exch.ServeHTTP(w, req)
+	})
+
+	s := &http.Server{
+		Addr:           ":5555",
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		IdleTimeout:    10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	log.Fatal(s.ListenAndServe())
 }
 
 type Exchange struct {
-	Date  time.Time
-	Rates map[string]Rate
+	Date  time.Time       `json:"date"`
+	Rates map[string]Rate `json:"rates"`
 }
 
-func (e *Exchange) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// serve me
+func (e *Exchange) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	data, err := json.Marshal(e)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = fmt.Fprintf(w, "%s", data)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 type Rate struct {
-	Buy    *big.Float
-	Middle *big.Float
-	Sell   *big.Float
+	Buy    *big.Float `json:"buy"`
+	Middle *big.Float `json:"middle"`
+	Sell   *big.Float `json:"sell"`
 }
 
 func fetch(source string) (exchange Exchange, err error) {
