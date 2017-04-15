@@ -68,13 +68,13 @@ func TestFetch(t *testing.T) {
 			continue
 		}
 
-		if fmt.Sprintf("%.9f", recRate.Buy) != fmt.Sprintf("%.9f", expRate.Buy) {
+		if fmt.Sprintf("%.6f", recRate.Buy) != fmt.Sprintf("%.6f", expRate.Buy) {
 			t.Errorf("Expected %v got %v on currency %s.", expRate.Buy, recRate.Buy, currency)
 		}
-		if fmt.Sprintf("%.9f", recRate.Middle) != fmt.Sprintf("%.9f", expRate.Middle) {
+		if fmt.Sprintf("%.6f", recRate.Middle) != fmt.Sprintf("%.6f", expRate.Middle) {
 			t.Errorf("Expected %v got %v on currency %s.", expRate.Middle, recRate.Middle, currency)
 		}
-		if fmt.Sprintf("%.9f", recRate.Sell) != fmt.Sprintf("%.9f", expRate.Sell) {
+		if fmt.Sprintf("%.6f", recRate.Sell) != fmt.Sprintf("%.6f", expRate.Sell) {
 			t.Errorf("Expected %v got %v on currency %s.", expRate.Sell, recRate.Sell, currency)
 		}
 
@@ -153,13 +153,13 @@ func TestServe(t *testing.T) {
 			continue
 		}
 
-		if fmt.Sprintf("%.9f", recValues.Sell) != fmt.Sprintf("%.9f", values.Sell) {
+		if fmt.Sprintf("%.6f", recValues.Sell) != fmt.Sprintf("%.6f", values.Sell) {
 			t.Errorf("Currency %q: expected %v got %v.", cur, recValues.Sell, values.Sell)
 		}
-		if fmt.Sprintf("%.9f", recValues.Middle) != fmt.Sprintf("%.9f", values.Middle) {
+		if fmt.Sprintf("%.6f", recValues.Middle) != fmt.Sprintf("%.6f", values.Middle) {
 			t.Errorf("Currency %q: expected %v got %v.", cur, recValues.Middle, values.Middle)
 		}
-		if fmt.Sprintf("%.9f", recValues.Buy) != fmt.Sprintf("%.9f", values.Buy) {
+		if fmt.Sprintf("%.6f", recValues.Buy) != fmt.Sprintf("%.6f", values.Buy) {
 			t.Errorf("Currency %q: expected %v got %v.", cur, recValues.Buy, values.Buy)
 		}
 	}

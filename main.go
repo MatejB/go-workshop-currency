@@ -147,6 +147,20 @@ type Rate struct {
 	Sell   *big.Float `json:"sell"`
 }
 
+func (rt Rate) MarshalJSON() ([]byte, error) {
+	fixedPrecision := struct {
+		Buy    string `json:"buy"`
+		Middle string `json:"middle"`
+		Sell   string `json:"sell"`
+	}{
+		Buy:    fmt.Sprintf("%.6f", rt.Buy),
+		Middle: fmt.Sprintf("%.6f", rt.Middle),
+		Sell:   fmt.Sprintf("%.6f", rt.Sell),
+	}
+
+	return json.Marshal(fixedPrecision)
+}
+
 func fetch(source string) (exchange Exchange, err error) {
 	exchange.Rates = make(map[string]Rate, 0)
 
