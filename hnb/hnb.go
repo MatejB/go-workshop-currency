@@ -7,6 +7,7 @@ package hnb
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -50,17 +51,43 @@ func New() *HNB {
 // LatestExchange will return fresh exchange rates.
 // Rates are updated every hour by internal mechanism.
 func (hnb *HNB) LatestExchange() (Exchange, error) {
-	// implement fetch via hnb.latest
-	return fetch(hnb.remote)
+	select {
+	case exchange := <-hnb.latest:
+		return exchange, nil
+	case <-hnb.exit:
+		return Exchange{}, errors.New("Exchange closed.")
+	}
 }
 
 func (hnb *HNB) updater() {
-	// implement updating and serving
+	exchange, err := fetch(hnb.remote)
+	if err != nil {
+		log.Printf("Fetch: %s\n", err)
+	}
+
+	for {
+		select {
+		case hnb.latest <- exchange:
+			// exchange readout
+
+		case <-hnb.refresh:
+			newExchange, err := fetch(hnb.remote)
+			if err != nil {
+				log.Printf("Fetch: %s\n", err)
+				continue
+			}
+			exchange = newExchange
+
+		case <-hnb.exit:
+			return
+		}
+	}
 }
 
 // Close will stop internal update mechanism.
 func (hnb *HNB) Close() {
-	// implement stop of updater goroutine
+	hnb.refreshTicker.Stop()
+	close(hnb.exit)
 }
 
 // Exchange holds exchange rates for date of application.
