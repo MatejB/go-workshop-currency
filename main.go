@@ -95,15 +95,7 @@ import (
 func main() {
 	hnbRates := hnb.New()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		exch, err := hnbRates.LatestExchange()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		exch.ServeHTTP(w, req)
-	})
+	http.HandleFunc("/", ratesHandler(hnbRates))
 
 	s := &http.Server{
 		Addr:           ":5555",
@@ -116,5 +108,36 @@ func main() {
 	err := s.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+type exchanger interface {
+	LatestExchange() (hnb.Exchange, error)
+}
+
+func ratesHandler(exchanger exchanger) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		exch, err := exchanger.LatestExchange()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		exch.ServeHTTP(w, req)
+	}
+}
+
+type conversionRequest struct {
+	Value    float64 `json:"value"`
+	Currency string  `json:"currency"`
+	Rate     string  `json:"rate"`
+}
+
+type conversionResponse struct {
+	Result float64 `json:"result"`
+}
+
+func conversionHandler(exchanger exchanger) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
 	}
 }
