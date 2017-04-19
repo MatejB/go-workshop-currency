@@ -90,6 +90,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	_ "net/http/pprof"
 	"time"
 
 	"github.com/MatejB/go-workshop-currency/hnb"
