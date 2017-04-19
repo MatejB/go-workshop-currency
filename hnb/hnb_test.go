@@ -164,3 +164,134 @@ func TestServe(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdater(t *testing.T) {
+	testRates := func(t *testing.T, recived, expected Exchange) {
+		for currency, expRate := range expected.Rates {
+			recRate, ok := recived.Rates[currency]
+			if !ok {
+				t.Errorf("Expected currency %q.", currency)
+				continue
+			}
+
+			if fmt.Sprintf("%.6f", recRate.Buy) != fmt.Sprintf("%.6f", expRate.Buy) {
+				t.Errorf("Expected %v got %v on currency %s.", expRate.Buy, recRate.Buy, currency)
+			}
+			if fmt.Sprintf("%.6f", recRate.Middle) != fmt.Sprintf("%.6f", expRate.Middle) {
+				t.Errorf("Expected %v got %v on currency %s.", expRate.Middle, recRate.Middle, currency)
+			}
+			if fmt.Sprintf("%.6f", recRate.Sell) != fmt.Sprintf("%.6f", expRate.Sell) {
+				t.Errorf("Expected %v got %v on currency %s.", expRate.Sell, recRate.Sell, currency)
+			}
+		}
+	}
+
+	var remoteContent string
+	var expected, recived Exchange
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(remoteContent))
+	}))
+	defer server.Close()
+
+	refresh := make(chan time.Time)
+
+	hnb := &HNB{
+		remote:        server.URL,
+		refreshTicker: time.NewTicker(time.Hour), // not important for test but must be set
+		refresh:       refresh,
+		latest:        make(chan Exchange),
+		exit:          make(chan struct{}),
+	}
+
+	expDate, err := time.Parse("02.01.2006.", "25.03.2017.")
+	if err != nil {
+		t.Errorf("Unexpected error %q.", err)
+	}
+
+	remoteContent = `
+059240320172503201713
+840USD001       6,839371       6,859951       6,880531
+978EUR001       7,388573       7,410805       7,433037
+`
+
+	go hnb.updater()
+
+	t.Run("initial-readout", func(t *testing.T) {
+		expected = Exchange{
+			Date: expDate,
+			Rates: map[string]Rate{
+				"EUR": Rate{Buy: big.NewFloat(7.388573), Middle: big.NewFloat(7.410805), Sell: big.NewFloat(7.433037)},
+				"USD": Rate{Buy: big.NewFloat(6.839371), Middle: big.NewFloat(6.859951), Sell: big.NewFloat(6.880531)},
+			},
+		}
+
+		recived, err = hnb.LatestExchange()
+		if err != nil {
+			t.Errorf("Unexpected error %q.", err)
+		}
+
+		testRates(t, recived, expected)
+	})
+
+	t.Run("change-of-rates-but-no-update-yet", func(t *testing.T) {
+		remoteContent = `
+059240320172503201713
+840USD001       1,839371       2,859951       3,880531
+978EUR001       1,388573       2,410805       3,433037
+`
+
+		expected = Exchange{
+			Date: expDate,
+			Rates: map[string]Rate{
+				"EUR": Rate{Buy: big.NewFloat(7.388573), Middle: big.NewFloat(7.410805), Sell: big.NewFloat(7.433037)},
+				"USD": Rate{Buy: big.NewFloat(6.839371), Middle: big.NewFloat(6.859951), Sell: big.NewFloat(6.880531)},
+			},
+		}
+
+		recived, err = hnb.LatestExchange()
+		if err != nil {
+			t.Errorf("Unexpected error %q.", err)
+		}
+
+		testRates(t, recived, expected)
+	})
+
+	t.Run("change-of-rates-with-update", func(t *testing.T) {
+		remoteContent = `
+059240320172503201713
+840USD001       1,839371       2,859951       3,880531
+978EUR001       1,388573       2,410805       3,433037
+`
+		select {
+		case refresh <- time.Now():
+		case <-time.After(time.Second):
+			t.Fatal("Updater not reacting to refresh signal.")
+		}
+
+		expected = Exchange{
+			Date: expDate,
+			Rates: map[string]Rate{
+				"EUR": Rate{Buy: big.NewFloat(1.388573), Middle: big.NewFloat(2.410805), Sell: big.NewFloat(3.433037)},
+				"USD": Rate{Buy: big.NewFloat(1.839371), Middle: big.NewFloat(2.859951), Sell: big.NewFloat(3.880531)},
+			},
+		}
+
+		recived, err = hnb.LatestExchange()
+		if err != nil {
+			t.Errorf("Unexpected error %q.", err)
+		}
+
+		testRates(t, recived, expected)
+	})
+
+	t.Run("change-of-rates-after-closing", func(t *testing.T) {
+		hnb.Close()
+
+		_, err := hnb.LatestExchange()
+		if err == nil {
+			t.Error("Expected error.")
+		}
+	})
+
+}
