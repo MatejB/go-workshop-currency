@@ -87,7 +87,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -96,20 +95,16 @@ import (
 )
 
 func main() {
-	exchange, err := fetch("http://www.hnb.hr/tecajn/htecajn.htm")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println(exchange.Date)
-	for currency, rates := range exchange.Rates {
-		fmt.Printf("%s\t%.6f\t%.6f\t%.6f\n", currency, rates.Buy, rates.Middle, rates.Sell)
-	}
+	// create a HTTP server
 }
 
 type Exchange struct {
 	Date  time.Time
 	Rates map[string]Rate
+}
+
+func (e *Exchange) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// serve me
 }
 
 type Rate struct {
