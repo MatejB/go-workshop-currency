@@ -1,4 +1,7 @@
 // Package hnb makes HNB currency exchange rates available for consumption.
+//
+// It is advisable to make use of single instance of HNB structure via
+// New function that will spin-off internal updater of exchange rates.
 package hnb
 
 import (
@@ -13,21 +16,51 @@ import (
 	"time"
 )
 
+const hnbRemote = "http://www.hnb.hr/tecajn/htecajn.htm"
+
 // HNB manages data fetching from HNB.
 type HNB struct {
-	remote string
+	remote        string
+	refreshTicker *time.Ticker
+	refresh       <-chan time.Time // update signal
+	latest        chan Exchange    // readout signal
+	exit          chan struct{}    // stop signal
 }
 
 // New will create HNB manager.
+//
+// Every HNB instance has a internal exchange update goroutine
+// that triggers every hour.
 func New() *HNB {
-	return &HNB{
-		remote: "http://www.hnb.hr/tecajn/htecajn.htm",
+	ticker := time.NewTicker(time.Hour)
+
+	hnb := &HNB{
+		remote:        hnbRemote,
+		refreshTicker: ticker,
+		refresh:       ticker.C,
+		latest:        make(chan Exchange),
+		exit:          make(chan struct{}),
 	}
+
+	go hnb.updater()
+
+	return hnb
 }
 
 // LatestExchange will return fresh exchange rates.
+// Rates are updated every hour by internal mechanism.
 func (hnb *HNB) LatestExchange() (Exchange, error) {
+	// implement fetch via hnb.latest
 	return fetch(hnb.remote)
+}
+
+func (hnb *HNB) updater() {
+	// implement updating and serving
+}
+
+// Close will stop internal update mechanism.
+func (hnb *HNB) Close() {
+	// implement stop of updater goroutine
 }
 
 // Exchange holds exchange rates for date of application.
