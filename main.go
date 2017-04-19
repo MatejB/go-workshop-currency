@@ -94,6 +94,7 @@ import (
 	"time"
 
 	"github.com/MatejB/go-workshop-currency/hnb"
+	_ "github.com/mkevac/debugcharts"
 )
 
 func main() {
