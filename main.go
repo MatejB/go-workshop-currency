@@ -85,7 +85,10 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"time"
 
@@ -96,6 +99,7 @@ func main() {
 	hnbRates := hnb.New()
 
 	http.HandleFunc("/", ratesHandler(hnbRates))
+	http.HandleFunc("/convert", conversionHandler(hnbRates))
 
 	s := &http.Server{
 		Addr:           ":5555",
@@ -139,5 +143,56 @@ type conversionResponse struct {
 
 func conversionHandler(exchanger exchanger) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		defer req.Body.Close()
+
+		dec := json.NewDecoder(req.Body)
+
+		var reqData conversionRequest
+		err := dec.Decode(&reqData)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Request decoding: %s", err), http.StatusBadRequest)
+			return
+		}
+
+		exch, err := exchanger.LatestExchange()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Fetching exchange: %s", err), http.StatusInternalServerError)
+			return
+		}
+
+		rates, ok := exch.Rates[reqData.Currency]
+		if !ok {
+			http.Error(w, "Unknown currency.", http.StatusBadRequest)
+			return
+		}
+		var multipler *big.Float
+		switch reqData.Rate {
+		case "buy":
+			multipler = rates.Buy
+		case "middle":
+			multipler = rates.Middle
+		case "sell":
+			multipler = rates.Sell
+		default:
+			http.Error(w, "Unknown rate value.", http.StatusBadRequest)
+			return
+		}
+
+		result := big.NewFloat(reqData.Value)
+		result = result.Mul(result, multipler)
+
+		resFloat, _ := result.Float64()
+		resData := conversionResponse{
+			Result: resFloat,
+		}
+
+		out, err := json.Marshal(resData)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Response encoding: %s", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		fmt.Fprintf(w, "%s", out)
 	}
 }

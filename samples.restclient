@@ -1,3 +1,13 @@
 # exchange
 GET http://127.0.0.1:5555/
 Content-Type: application/json
+
+# convert
+POST http://127.0.0.1:5555/convert
+Content-Type: application/json
+
+{
+        "value": 100,
+        "currency": "EUR",
+        "rate": "middle"
+}
