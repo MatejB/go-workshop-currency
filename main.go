@@ -107,6 +107,14 @@ func (e *Exchange) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// serve me
 }
 
+// MarshalJSON makes exchange implement
+// json.Marshaler interface
+func (e *Exchange) MarshalJSON() ([]byte, error) {
+	// for tests to pass we must fix reates
+	// to 6 decimals in json output
+	return nil, nil
+}
+
 type Rate struct {
 	Buy    *big.Float
 	Middle *big.Float
