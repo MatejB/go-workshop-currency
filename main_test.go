@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -139,7 +138,25 @@ func TestServe(t *testing.T) {
 		t.Errorf("Unexpected error %q.", err)
 	}
 
-	if !reflect.DeepEqual(recived, expected) {
-		t.Errorf("Expected %#v got %#v.", expected, recived)
+	if len(recived.Rates) != len(expected.Rates) {
+		t.Fatalf("Expected %d got %d.", len(expected.Rates), len(recived.Rates))
+	}
+
+	for cur, values := range expected.Rates {
+		recValues, ok := recived.Rates[cur]
+		if !ok {
+			t.Errorf("Expected to receive rates for currencies %q.", cur)
+			continue
+		}
+
+		if fmt.Sprintf("%.6f", recValues.Sell) != fmt.Sprintf("%.6f", values.Sell) {
+			t.Errorf("Currency %q: expected %v got %v.", cur, recValues.Sell, values.Sell)
+		}
+		if fmt.Sprintf("%.6f", recValues.Middle) != fmt.Sprintf("%.6f", values.Middle) {
+			t.Errorf("Currency %q: expected %v got %v.", cur, recValues.Middle, values.Middle)
+		}
+		if fmt.Sprintf("%.6f", recValues.Buy) != fmt.Sprintf("%.6f", values.Buy) {
+			t.Errorf("Currency %q: expected %v got %v.", cur, recValues.Buy, values.Buy)
+		}
 	}
 }
